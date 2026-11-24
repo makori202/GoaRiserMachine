@@ -36,7 +36,7 @@ GoaRiserMachineEditor::GoaRiserMachineEditor(GoaRiserMachineProcessor& p)
     tempHtml.replaceWithText(html);
     webView->goToURL(juce::URL(tempHtml).toString(false));
     setResizable(true, true);
-    setSize(960, 520);
+    setSize(1040, 580);
     startTimerHz(25);
 }
 
