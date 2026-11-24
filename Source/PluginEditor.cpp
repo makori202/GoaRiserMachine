@@ -27,16 +27,15 @@ GoaRiserMachineEditor::GoaRiserMachineEditor(GoaRiserMachineProcessor& p)
                 .withUserDataFolder(juce::File::getSpecialLocation(juce::File::tempDirectory))
         );
     webView = std::make_unique<BridgeWebView>(opts, [this](const juce::String& url) {
-        auto jsonStr = juce::URL::removeEscapeChars(url.fromFirstOccurrenceOf("data=", false, false));
-        processor.setParamsFromJson(jsonStr);
+        handleBridge(url);
     });
     addAndMakeVisible(*webView);
     auto html = juce::String::fromUTF8(BinaryData::ui_html, BinaryData::ui_htmlSize);
-    auto tempHtml = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("goa_riser_ui.html");
+    auto tempHtml = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("goa_fx_lab_v3_ui.html");
     tempHtml.replaceWithText(html);
     webView->goToURL(juce::URL(tempHtml).toString(false));
     setResizable(true, true);
-    setSize(1040, 580);
+    setSize(1080, 620);
     startTimerHz(25);
 }
 
@@ -47,4 +46,26 @@ void GoaRiserMachineEditor::resized() {
 void GoaRiserMachineEditor::timerCallback() {
     if (webView)
         webView->evaluateJavascript("if(window.updateRiseProgress) window.updateRiseProgress(" + juce::String(processor.getProgress(), 3) + ");");
+}
+
+void GoaRiserMachineEditor::handleBridge(const juce::String& url) {
+    auto path = url.fromFirstOccurrenceOf("https://juce.bridge/", false, false).upToFirstOccurrenceOf("?", false, false);
+    if (path == "params") {
+        auto jsonStr = juce::URL::removeEscapeChars(url.fromFirstOccurrenceOf("data=", false, false));
+        processor.setParamsFromJson(jsonStr);
+    } else if (path == "dragwav") {
+        auto fname = juce::URL::removeEscapeChars(url.fromFirstOccurrenceOf("name=", false, false));
+        if (fname.isEmpty()) fname = "GoaFX_Sample.wav";
+        auto outFile = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile(fname);
+        processor.renderCurrentFxToWav(outFile);
+        performExternalDragDropOfFiles({ outFile.getFullPathName() }, false);
+    } else if (path == "savewav") {
+        auto fname = juce::URL::removeEscapeChars(url.fromFirstOccurrenceOf("name=", false, false));
+        if (fname.isEmpty()) fname = "GoaFX_Sample.wav";
+        auto dir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("GoaFX_Exports");
+        auto outFile = dir.getChildFile(fname);
+        processor.renderCurrentFxToWav(outFile);
+        if (webView)
+            webView->evaluateJavascript("if(window.showExportToast) window.showExportToast('Saved to Documents/GoaFX_Exports/" + fname + "');");
+    }
 }
